@@ -1,0 +1,88 @@
+# Melora SwiftLint Configuration
+
+included:
+  - MeloraCore/Sources
+  - MeloraData/Sources
+  - MeloraAudio/Sources
+  - MeloraUI/Sources
+  - MeloraApp
+
+excluded:
+  - tests
+  - MeloraCore/Tests
+  - MeloraData/Tests
+  - MeloraAudio/Tests
+  - MeloraUI/Tests
+  - .build
+  - DerivedData
+  - Release
+  - Melora.xcodeproj
+
+opt_in_rules:
+  - empty_count
+  - closure_spacing
+  - overridden_super_call
+  - fatal_error_message
+  - yoda_condition
+  - unneeded_parentheses_in_closure_argument
+  - modifier_order
+  - redundant_nil_coalescing
+  - multiline_parameters
+
+disabled_rules:
+  - todo
+  - trailing_whitespace
+
+# Rule Configurations
+line_length:
+  warning: 140
+  error: 200
+  ignores_urls: true
+  ignores_comments: true
+  ignores_interpolated_strings: true
+
+type_body_length:
+  warning: 400
+  error: 600
+
+file_length:
+  warning: 800
+  error: 1200
+  ignore_comment_only_lines: true
+
+function_parameter_count:
+  warning: 8
+  error: 12
+
+identifier_name:
+  min_length:
+    warning: 2
+    error: 1
+  valid_names:
+    - id
+    - db
+    - vm
+    - to
+    - at
+    - on
+    - up
+    - by
+    - ok
+    - r
+    - g
+    - b
+    - a
+
+type_name:
+  min_length:
+    warning: 3
+    error: 2
+  max_length:
+    warning: 45
+    error: 60
+
+cyclomatic_complexity:
+  warning: 15
+  error: 25
+
+reporter: "github-actions-logging"

@@ -1,0 +1,61 @@
+name: Melora
+options:
+  bundleIdPrefix: com.melora
+  deploymentTarget:
+    iOS: "18.0"
+  xcodeVersion: "16.0"
+  generateEmptyDirectories: true
+
+packages:
+  MeloraCore:
+    path: MeloraCore
+  MeloraData:
+    path: MeloraData
+  MeloraAudio:
+    path: MeloraAudio
+  MeloraUI:
+    path: MeloraUI
+
+targets:
+  MeloraApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: MeloraApp
+    dependencies:
+      - package: MeloraCore
+      - package: MeloraData
+      - package: MeloraAudio
+      - package: MeloraUI
+    info:
+      path: MeloraApp/Info.plist
+    settings:
+      base:
+        PRODUCT_NAME: Melora
+        PRODUCT_BUNDLE_IDENTIFIER: com.melora.music
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+        ENABLE_PREVIEWS: YES
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: MeloraApp/Info.plist
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        LD_RUNPATH_SEARCH_PATHS:
+          - "$(inherited)"
+          - "@executable_path/Frameworks"
+
+schemes:
+  MeloraApp:
+    build:
+      targets:
+        MeloraApp: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    archive:
+      config: Release

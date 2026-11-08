@@ -1,0 +1,55 @@
+# ==============================================================================
+# Melora .gitignore
+# ==============================================================================
+
+# OS & Environment Files
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+.env
+.env.*
+*.env
+
+# Local Databases & State
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.db
+
+# Build Artifacts & Caches
+build/
+DerivedData/
+.build/
+.swiftpm/
+Packages/
+xcuserdata/
+*.xcuserdatad
+*.xcscmblueprint
+*.xcarchive
+*.ipa
+*.xcresult
+logs/
+*.log
+
+# Allow Xcode project and shared schemes, ignore user data
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+
+# Apple Code Signing, Certificates & Private Keys (STRICTLY FORBIDDEN)
+*.p12
+*.cer
+*.mobileprovision
+*.p8
+*.key
+*.pem
+Release/ExportOptions.plist
+!Release/ExportOptions*.template
+
+# Python Cache & Testing
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
