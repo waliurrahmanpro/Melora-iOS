@@ -42,6 +42,9 @@ public struct SpotifyPagingDTO<T: Codable & Sendable>: Codable, Sendable {
     }
 }
 
+extension SpotifyPagingDTO: Equatable where T: Equatable {}
+extension SpotifyPagingDTO: Hashable where T: Hashable {}
+
 /// User profile object returned by GET https://api.spotify.com/v1/me.
 public struct SpotifyUserProfile: Codable, Sendable, Equatable {
     public let id: String

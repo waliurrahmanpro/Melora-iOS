@@ -9,9 +9,7 @@ public final class SpotifyOAuthManager: @unchecked Sendable {
     public let configuration: SpotifyAuthorizationConfiguration
     public let tokenManager: TokenManager
 
-    private let lock = NSLock()
-    private var pendingPKCE: PKCEPair?
-    private var pendingState: String?
+    private let stateContainer = PendingStateContainer()
 
     public init(
         configuration: SpotifyAuthorizationConfiguration,
@@ -31,10 +29,7 @@ public final class SpotifyOAuthManager: @unchecked Sendable {
         let pkce = PKCEGenerator.generate(length: 64)
         let state = PKCEGenerator.generateState(length: 32)
 
-        lock.lock()
-        self.pendingPKCE = pkce
-        self.pendingState = state
-        lock.unlock()
+        stateContainer.setPending(pkce: pkce, state: state)
 
         var components = URLComponents(url: configuration.authorizationEndpoint, resolvingAgainstBaseURL: true)!
         components.queryItems = [
@@ -52,37 +47,57 @@ public final class SpotifyOAuthManager: @unchecked Sendable {
 
     /// Processes the redirect URL returned from Spotify authorization.
     public func handleRedirectURL(_ url: URL) async throws -> SpotifyTokenResponse {
-        lock.lock()
-        guard let expectedState = pendingState, let pkce = pendingPKCE else {
-            lock.unlock()
-            throw OAuthCallbackError.stateMismatch(expected: "Valid active state", received: nil)
-        }
-        lock.unlock()
+        // 1. Atomically validate state and consume the code verifier synchronously without holding locks across await
+        let (code, codeVerifier) = try stateContainer.consumePending(for: url)
 
-        // 1. Validate state and extract code
-        let code = try OAuthCallbackHandler.handleCallback(url: url, expectedState: expectedState)
-
-        // 2. Exchange authorization code for tokens using the stored code_verifier
-        let tokenResponse = try await tokenManager.exchangeCodeForTokens(
+        // 2. Exchange authorization code for tokens asynchronously
+        return try await tokenManager.exchangeCodeForTokens(
             code: code,
-            codeVerifier: pkce.codeVerifier
+            codeVerifier: codeVerifier
         )
-
-        // 3. Clear temporary state upon success
-        lock.lock()
-        self.pendingState = nil
-        self.pendingPKCE = nil
-        lock.unlock()
-
-        return tokenResponse
     }
 
     /// Logs out and revokes stored session tokens.
     public func disconnect() async throws {
+        stateContainer.clear()
+        try await tokenManager.clearTokens()
+    }
+}
+
+// MARK: - Synchronous Concurrency-Safe State Container
+private final class PendingStateContainer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var pendingPKCE: PKCEPair?
+    private var pendingState: String?
+
+    func setPending(pkce: PKCEPair, state: String) {
         lock.lock()
+        defer { lock.unlock() }
+        self.pendingPKCE = pkce
+        self.pendingState = state
+    }
+
+    /// Atomically validates the callback state, extracts the auth code, and invalidates pending credentials
+    /// to prevent concurrent reuse or replay attacks.
+    func consumePending(for url: URL) throws -> (code: String, codeVerifier: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let expectedState = pendingState, let pkce = pendingPKCE else {
+            throw OAuthCallbackError.stateMismatch(expected: "Valid active state", received: nil)
+        }
+
+        let code = try OAuthCallbackHandler.handleCallback(url: url, expectedState: expectedState)
+
+        // Invalidate immediately upon successful consumption
         self.pendingState = nil
         self.pendingPKCE = nil
-        lock.unlock()
-        try await tokenManager.clearTokens()
+        return (code: code, codeVerifier: pkce.codeVerifier)
+    }
+
+    func clear() {
+        lock.lock()
+        defer { lock.unlock() }
+        self.pendingState = nil
+        self.pendingPKCE = nil
     }
 }

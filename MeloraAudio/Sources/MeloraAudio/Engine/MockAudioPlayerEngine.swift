@@ -76,17 +76,18 @@ public final class MockAudioPlayerEngine: AudioPlayerEngineProtocol, @unchecked 
         observers.removeAll { $0 === observer }
     }
 
-    public func load(track: Track, autoPlay: Bool) async throws {
+    private func applyLoad(track: Track, autoPlay: Bool) -> ([AudioPlayerEngineObserver], PlaybackStatus, PlaybackPosition) {
         lock.lock()
+        defer { lock.unlock() }
         activeTrack = track
         loadedTracks.append(track)
         activePosition = PlaybackPosition(currentTimeSeconds: 0, durationSeconds: track.durationSeconds)
         activeStatus = autoPlay ? .playing(trackId: track.id) : .paused(trackId: track.id)
-        let obs = observers
-        let stat = activeStatus
-        let pos = activePosition
-        lock.unlock()
+        return (observers, activeStatus, activePosition)
+    }
 
+    public func load(track: Track, autoPlay: Bool) async throws {
+        let (obs, stat, pos) = applyLoad(track: track, autoPlay: autoPlay)
         for o in obs {
             o.audioEngineDidChangeStatus(stat)
             o.audioEngineDidChangePosition(pos)
@@ -151,19 +152,20 @@ public final class MockAudioPlayerEngine: AudioPlayerEngineProtocol, @unchecked 
         }
     }
 
-    public func seek(toSeconds seconds: Double) async {
+    private func applySeek(toSeconds seconds: Double) -> ([AudioPlayerEngineObserver], PlaybackPosition)? {
         lock.lock()
+        defer { lock.unlock() }
         seekCallCount += 1
         lastSeekTarget = seconds
         guard let track = activeTrack else {
-            lock.unlock()
-            return
+            return nil
         }
         activePosition = PlaybackPosition(currentTimeSeconds: seconds, durationSeconds: track.durationSeconds)
-        let obs = observers
-        let pos = activePosition
-        lock.unlock()
+        return (observers, activePosition)
+    }
 
+    public func seek(toSeconds seconds: Double) async {
+        guard let (obs, pos) = applySeek(toSeconds: seconds) else { return }
         for o in obs {
             o.audioEngineDidChangePosition(pos)
         }
@@ -194,16 +196,18 @@ public final class MockAudioPlayerEngine: AudioPlayerEngineProtocol, @unchecked 
         }
     }
 
+    private func applyTrackCompletion() -> ([AudioPlayerEngineObserver], Track)? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let current = activeTrack else {
+            return nil
+        }
+        return (observers, current)
+    }
+
     /// Simulates reaching the end of the currently playing track.
     public func simulateTrackCompletion() async {
-        lock.lock()
-        guard let current = activeTrack else {
-            lock.unlock()
-            return
-        }
-        let obs = observers
-        lock.unlock()
-
+        guard let (obs, current) = applyTrackCompletion() else { return }
         for o in obs {
             o.audioEngineDidFinishPlaying(track: current)
         }

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Item wrapper returned by GET /v1/me/tracks.
-public struct SpotifySavedTrackItemDTO: Codable, Sendable {
+public struct SpotifySavedTrackItemDTO: Codable, Sendable, Equatable, Hashable {
     public let addedAt: String?
     public let track: SpotifyTrackDTO
 
