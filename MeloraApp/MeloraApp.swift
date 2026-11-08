@@ -48,7 +48,7 @@ struct MeloraApp: App {
 
         // 4. Spotify Service
         let spotifyConfig = SpotifyAuthorizationConfiguration(
-            clientId: "YOUR_SPOTIFY_CLIENT_ID", // Configured via Spotify Developer Dashboard
+            clientId: "26cae7279c1742faa3d741dbdbb9fcb8",
             redirectUri: URL(string: "melora://spotify-callback")!
         )
         let tokenStorage = KeychainTokenStorage()
