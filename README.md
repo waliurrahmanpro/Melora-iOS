@@ -120,3 +120,4 @@ python -m unittest discover -s tests -p "test_*.py" -v
 - **Spotify Compliance:** Melora uses the Spotify Web API strictly for authorized OAuth 2.0 PKCE authentication, playlist metadata, and discovery. Melora **never** streams, downloads, caches, or rips copyrighted audio from Spotify.
 - **Local Audio Ownership:** Audio playback functionality is designed exclusively for user-owned, legally acquired audio files imported into the application's isolated sandbox.
 - **Intellectual Property:** Melora is an independent open-source project and is not affiliated with, endorsed by, or associated with Spotify AB.
+Melora automatic build test.
