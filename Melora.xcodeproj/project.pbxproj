@@ -82,7 +82,7 @@
 				9B0000082CE8000100000001 /* MeloraAudio */,
 				9B00000A2CE8000100000001 /* MeloraUI */,
 			);
-			productName = MeloraApp;
+			productName = Melora;
 			productReference = 9B00000C2CE8000100000001 /* Melora.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -218,7 +218,7 @@
 				);
 				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.melora.music;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = Melora;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -239,7 +239,7 @@
 				);
 				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.melora.music;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = Melora;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
