@@ -353,7 +353,7 @@ Melora/
 - [x] Create documentation (`UI_DESIGN_SYSTEM.md`, `UI_ARCHITECTURE.md`, `SCREEN_CATALOG.md`) and unit test suite (`ViewModelTests.swift` / `test_view_models.py`).
 
 ### Phase 7: GitHub Actions CI/CD Pipeline & Automated Verification (COMPLETED)
-- [x] Create `.github/workflows/ios-ci.yml` targeting Xcode 16 / macOS Sonoma runner (`macos-14`).
+- [x] Create `.github/workflows/ios-ci.yml` targeting Xcode 16 / macOS Sequoia runner (`macos-15`).
 - [x] Configure automated matrix testing of Swift 6 packages (`MeloraCore`, `MeloraData`, `MeloraAudio`, `MeloraUI`).
 - [x] Configure SwiftLint static code analysis (`.swiftlint.yml`) with GitHub Actions inline error reporting.
 - [x] Configure headless iOS 18 Simulator compilation (`xcodebuild` targeting `generic/platform=iOS Simulator`).

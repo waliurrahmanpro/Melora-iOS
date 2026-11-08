@@ -25,20 +25,16 @@ flowchart TD
 
 ## 2. Runner Environment & Xcode Versioning
 
-Melora targets **iOS 18+** and requires **Swift 6.0**. To support these APIs, the workflow executes on Apple Silicon GitHub-hosted runners (`macos-14` / macOS Sonoma).
+Melora targets **iOS 18+** and requires **Swift 6.0**. To support these APIs, the workflow executes on Apple Silicon GitHub-hosted runners (`macos-15` / macOS Sequoia).
 
 ### Xcode Selection Strategy
-GitHub runners often contain multiple Xcode versions installed side-by-side in `/Applications/`. The CI script dynamically checks for and selects Xcode 16.x:
+GitHub runners contain pre-installed Xcode suites in `/Applications/`. The CI script dynamically locates and selects the highest available Xcode 16.x toolchain:
 
 ```bash
-if [ -d "/Applications/Xcode_16.1.app" ]; then
-  sudo xcode-select -s /Applications/Xcode_16.1.app
-elif [ -d "/Applications/Xcode_16.0.app" ]; then
-  sudo xcode-select -s /Applications/Xcode_16.0.app
-elif [ -d "/Applications/Xcode_16.app" ]; then
-  sudo xcode-select -s /Applications/Xcode_16.app
+TARGET_XCODE=$(find /Applications -maxdepth 1 -name "Xcode_16*.app" -o -name "Xcode*.app" | sort -V | tail -n 1)
+if [ -n "$TARGET_XCODE" ] && [ -d "$TARGET_XCODE" ]; then
+  sudo xcode-select -s "$TARGET_XCODE"
 fi
-
 xcodebuild -version
 swift --version
 ```
@@ -48,13 +44,13 @@ swift --version
 ## 3. Workflow Jobs Breakdown
 
 ### Job 1: SwiftLint Static Analysis (`lint`)
-- **Runner**: `macos-14`
+- **Runner**: `macos-15`
 - **Purpose**: Verifies compliance with project style guidelines, naming conventions, complexity thresholds, and formatting rules.
 - **Config**: Configured via [`.swiftlint.yml`](file:///e:/Downloads/app/.swiftlint.yml).
 - **Behavior**: Emits GitHub Actions warnings and errors directly into pull request review diffs (`reporter: "github-actions-logging"`).
 
 ### Job 2: Swift Packages Matrix Build & Test (`swift-packages`)
-- **Runner**: `macos-14`
+- **Runner**: `macos-15`
 - **Matrix**: Evaluates each Swift package in isolation:
   - `MeloraCore`
   - `MeloraData`
@@ -70,7 +66,7 @@ swift --version
 - **Artifacts**: Uploads `logs/build-<PACKAGE>.log` and `logs/test-<PACKAGE>.log` for every package target via `actions/upload-artifact@v4`.
 
 ### Job 3: iOS 18 Simulator Build (`ios-simulator-build`)
-- **Runner**: `macos-14`
+- **Runner**: `macos-15`
 - **Dependency**: Runs automatically after `swift-packages` completes successfully (`needs: [swift-packages]`).
 - **Project Resolution**: If `xcodegen` is available, verifies or regenerates `Melora.xcodeproj` from [`project.yml`](file:///e:/Downloads/app/project.yml); otherwise builds against the committed [`Melora.xcodeproj`](file:///e:/Downloads/app/Melora.xcodeproj/project.pbxproj).
 - **Compilation Command**:

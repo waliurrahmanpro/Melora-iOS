@@ -17,7 +17,7 @@ jobs:
   # ==============================================================================
   lint:
     name: SwiftLint Static Analysis
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -28,6 +28,7 @@ jobs:
             swiftlint lint --strict --config .swiftlint.yml
           else
             echo "SwiftLint not found preinstalled, installing via Homebrew..."
+            export HOMEBREW_NO_AUTO_UPDATE=1
             brew install swiftlint
             swiftlint lint --strict --config .swiftlint.yml
           fi
@@ -37,7 +38,7 @@ jobs:
   # ==============================================================================
   swift-packages:
     name: Swift Packages Build & Test
-    runs-on: macos-14
+    runs-on: macos-15
     strategy:
       fail-fast: false
       matrix:
@@ -91,7 +92,7 @@ jobs:
   ios-simulator-build:
     name: iOS 18 Simulator Build
     needs: [swift-packages]
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -109,6 +110,7 @@ jobs:
         run: |
           if [ ! -d "Melora.xcodeproj" ]; then
             echo "Melora.xcodeproj not present, attempting XcodeGen generation..."
+            export HOMEBREW_NO_AUTO_UPDATE=1
             brew install xcodegen
             xcodegen generate
           fi

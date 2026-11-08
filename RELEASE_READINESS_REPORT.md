@@ -14,7 +14,7 @@ This report evaluates the production readiness of **Melora** across architecture
 | **Audio Playback** | AVFoundation, Queue, Lock Screen | **READY** | Native continuous playback, Control Center scrubber, interruption handlers. |
 | **Spotify API Integration**| OAuth 2.0 PKCE, Discovery & Playlists | **READY** | Fully compliant with Spotify Developer Terms. Zero audio ripping. |
 | **SwiftUI User Interface**| AMOLED Dark Theme, 8 Screens, MVVM | **READY** | iOS 18+ native `@Observable`, responsive layout, Mini Player. |
-| **CI/CD Automation** | GitHub Actions macOS-14, Xcode 16 Matrix | **READY** | Dynamic Xcode 16 selection, SPM test matrices, headless Simulator build. |
+| **CI/CD Automation** | GitHub Actions macOS-15, Xcode 16 Matrix | **READY** | Dynamic Xcode 16 selection, SPM test matrices, headless Simulator build. |
 | **Code Signing & Release** | ExportOptions, XcodeGen, Sideloadly | **READY** | Ready for macOS Xcode archive or Windows Sideloadly installation. |
 
 ---
@@ -78,7 +78,7 @@ To produce a signed `.ipa` file from the current codebase:
 ### Path B: Running on GitHub Actions (Zero Local Mac Required)
 1. Push the repository to GitHub on `main` or create a pull request.
 2. The GitHub Actions workflow [`.github/workflows/ios-ci.yml`](file:///e:/Downloads/app/.github/workflows/ios-ci.yml) will:
-   - Check out code on `macos-14` (Apple Silicon M1 runner).
+   - Check out code on `macos-15` (Apple Silicon M2 runner).
    - Dynamically select Xcode 16.
    - Run SwiftLint code analysis.
    - Run tests for `MeloraCore`, `MeloraData`, `MeloraAudio`, and `MeloraUI`.

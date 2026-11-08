@@ -94,7 +94,7 @@ class TestIOSBuildValidation(unittest.TestCase):
         with open(self.ci_workflow_path, "r", encoding="utf-8") as f:
             ci = f.read()
 
-        self.assertIn("macos-14", ci, "Workflow must use macos-14 runner")
+        self.assertIn("macos-15", ci, "Workflow must use macos-15 runner")
         self.assertIn("Xcode_16", ci, "Workflow must select Xcode 16")
         self.assertIn("swift test", ci, "Workflow must execute swift test")
         self.assertIn("xcodebuild", ci, "Workflow must run xcodebuild for simulator")
