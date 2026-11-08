@@ -40,7 +40,16 @@ public final class SpotifyAPIClient: SpotifyAPIClientProtocol, @unchecked Sendab
         )
 
         // 4. Perform network call
-        let (data, response) = try await urlSession.data(for: request)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await urlSession.data(for: request)
+        } catch {
+            if Task.isCancelled {
+                throw error
+            }
+            throw SpotifyAPIError.networkError(message: error.localizedDescription)
+        }
 
         // 5. Inspect for rate limiting (429)
         if let httpResponse = response as? HTTPURLResponse {
@@ -48,14 +57,22 @@ public final class SpotifyAPIClient: SpotifyAPIClientProtocol, @unchecked Sendab
 
             // If 401 Unauthorized, attempt a single token refresh and retry
             if httpResponse.statusCode == 401 {
-                let freshToken = try await tokenManager.refreshAccessToken()
-                let retryRequest = try SpotifyRequestBuilder.buildRequest(
-                    for: endpoint,
-                    accessToken: freshToken,
-                    baseURL: baseURL
-                )
-                let (retryData, retryResponse) = try await urlSession.data(for: retryRequest)
-                return try SpotifyResponseHandler.handleResponse(data: retryData, response: retryResponse)
+                do {
+                    let freshToken = try await tokenManager.refreshAccessToken()
+                    let retryRequest = try SpotifyRequestBuilder.buildRequest(
+                        for: endpoint,
+                        accessToken: freshToken,
+                        baseURL: baseURL
+                    )
+                    let (retryData, retryResponse) = try await urlSession.data(for: retryRequest)
+                    return try SpotifyResponseHandler.handleResponse(data: retryData, response: retryResponse)
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch let apiError as SpotifyAPIError {
+                    throw apiError
+                } catch {
+                    throw SpotifyAPIError.unauthorized(message: "Token expired and refresh failed: \(error.localizedDescription)")
+                }
             }
         }
 

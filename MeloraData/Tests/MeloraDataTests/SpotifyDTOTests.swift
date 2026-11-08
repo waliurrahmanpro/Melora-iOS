@@ -144,4 +144,95 @@ struct SpotifyDTOTests {
         #expect(domainPlaylist.totalTracks == 50)
         #expect(domainPlaylist.ownerName == "Spotify")
     }
+
+    @Test("Decode SpotifyPlaylistDTO with simplified tracks object")
+    func testSimplifiedPlaylistDTODecoding() throws {
+        let json = """
+        {
+            "id": "37i9dQZF1DXcBWIGoYBM5M",
+            "name": "Today's Top Hits",
+            "description": "Jung Kook is on top of the Hottest 50!",
+            "public": true,
+            "collaborative": false,
+            "snapshot_id": "MTcwMDAwMDAwMCwwMDA=",
+            "images": [
+                {
+                    "url": "https://i.scdn.co/image/tth.jpg",
+                    "height": 300,
+                    "width": 300
+                }
+            ],
+            "owner": {
+                "id": "spotify",
+                "display_name": "Spotify"
+            },
+            "tracks": {
+                "href": "https://api.spotify.com/v1/playlists/37i9dQZF1DXcBWIGoYBM5M/tracks",
+                "total": 50
+            }
+        }
+        """.data(using: .utf8)!
+
+        let playlistDTO = try JSONDecoder().decode(SpotifyPlaylistDTO.self, from: json)
+        #expect(playlistDTO.id == "37i9dQZF1DXcBWIGoYBM5M")
+        #expect(playlistDTO.name == "Today's Top Hits")
+        #expect(playlistDTO.totalTracks == 50)
+        #expect(playlistDTO.tracks?.items == nil)
+        #expect(playlistDTO.tracks?.href == "https://api.spotify.com/v1/playlists/37i9dQZF1DXcBWIGoYBM5M/tracks")
+
+        let domainPlaylist = SpotifyModelMapper.mapToPlaylistMetadata(playlistDTO)
+        #expect(domainPlaylist.id == playlistDTO.id)
+        #expect(domainPlaylist.name == "Today's Top Hits")
+        #expect(domainPlaylist.totalTracks == 50)
+        #expect(domainPlaylist.ownerName == "Spotify")
+    }
+
+    @Test("Decode SpotifyPagingDTO<SpotifyPlaylistDTO> with multiple and empty playlists")
+    func testPlaylistPagingResponse() throws {
+        let emptyJson = """
+        {
+            "href": "https://api.spotify.com/v1/me/playlists?offset=0&limit=20",
+            "items": [],
+            "limit": 20,
+            "next": null,
+            "offset": 0,
+            "previous": null,
+            "total": 0
+        }
+        """.data(using: .utf8)!
+
+        let emptyPaging = try JSONDecoder().decode(SpotifyPagingDTO<SpotifyPlaylistDTO>.self, from: emptyJson)
+        #expect(emptyPaging.items.isEmpty)
+        #expect(emptyPaging.total == 0)
+
+        let populatedJson = """
+        {
+            "href": "https://api.spotify.com/v1/me/playlists?offset=0&limit=20",
+            "items": [
+                {
+                    "id": "pl_1",
+                    "name": "Focus Flow",
+                    "tracks": { "total": 25 }
+                },
+                {
+                    "id": "pl_2",
+                    "name": "Night Drive",
+                    "tracks": { "total": 80 }
+                }
+            ],
+            "limit": 20,
+            "next": null,
+            "offset": 0,
+            "previous": null,
+            "total": 2
+        }
+        """.data(using: .utf8)!
+
+        let paging = try JSONDecoder().decode(SpotifyPagingDTO<SpotifyPlaylistDTO>.self, from: populatedJson)
+        #expect(paging.items.count == 2)
+        #expect(paging.items[0].name == "Focus Flow")
+        #expect(paging.items[0].totalTracks == 25)
+        #expect(paging.items[1].name == "Night Drive")
+        #expect(paging.items[1].totalTracks == 80)
+    }
 }

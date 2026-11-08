@@ -22,7 +22,11 @@ public final class SpotifyViewModel: @unchecked Sendable {
 
     public var isConnecting: Bool = false
     public var isImporting: Bool = false
+    public var isLoadingPlaylists: Bool = false
+    public var playlistErrorMessage: String? = nil
     public var statusMessage: String?
+
+    private var activePlaylistTask: Task<Void, Never>? = nil
 
     public init(
         spotifyService: SpotifyServiceProtocol,
@@ -94,6 +98,10 @@ public final class SpotifyViewModel: @unchecked Sendable {
     }
 
     public func disconnect() {
+        activePlaylistTask?.cancel()
+        activePlaylistTask = nil
+        isLoadingPlaylists = false
+        playlistErrorMessage = nil
         Task {
             try? await spotifyService.disconnect()
             await MainActor.run {
@@ -105,16 +113,29 @@ public final class SpotifyViewModel: @unchecked Sendable {
     }
 
     public func loadRemotePlaylists() {
-        Task {
+        guard !isLoadingPlaylists else { return }
+        isLoadingPlaylists = true
+        playlistErrorMessage = nil
+
+        activePlaylistTask?.cancel()
+        activePlaylistTask = Task { @MainActor in
+            defer {
+                self.isLoadingPlaylists = false
+            }
+
             do {
                 let playlists = try await spotifyService.getUserPlaylists(limit: 50, offset: 0)
-                await MainActor.run {
-                    self.remotePlaylists = playlists
+                guard !Task.isCancelled else { return }
+                self.remotePlaylists = playlists
+                if playlists.isEmpty {
+                    self.statusMessage = "No Spotify playlists found in your library."
                 }
+            } catch is CancellationError {
+                // Task was cancelled, exit cleanly
             } catch {
-                await MainActor.run {
-                    self.statusMessage = "Failed to load Spotify playlists: \(error.localizedDescription)"
-                }
+                guard !Task.isCancelled else { return }
+                self.playlistErrorMessage = error.localizedDescription
+                self.statusMessage = "Failed to load Spotify playlists: \(error.localizedDescription)"
             }
         }
     }

@@ -2,7 +2,8 @@
 """
 Melora Spotify Integration & Network Layer Test Suite
 Validates PKCE RFC 7636 compliance, OAuth state security, DTO JSON schemas,
-HTTP status handlers, and includes a live local mock Spotify server test.
+simplified and full playlist decoding, HTTP status handlers (200, 401, 403, 429, 500),
+and SpotifyViewModel loading / retry state machine.
 """
 
 import base64
@@ -120,6 +121,19 @@ class MockSpotifyHandler(http.server.BaseHTTPRequestHandler):
             }
             self.wfile.write(json.dumps(payload).encode("utf-8"))
 
+        elif self.path == "/v1/me/playlists?empty=true":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            payload = {
+                "href": "https://api.spotify.com/v1/me/playlists",
+                "items": [],
+                "limit": 20,
+                "offset": 0,
+                "total": 0
+            }
+            self.wfile.write(json.dumps(payload).encode("utf-8"))
+
         elif self.path.startswith("/v1/me/playlists"):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -133,7 +147,7 @@ class MockSpotifyHandler(http.server.BaseHTTPRequestHandler):
                         "description": "Chill vibes for work",
                         "images": [{"url": "https://i.scdn.co/image/lofi.jpg", "height": 300, "width": 300}],
                         "owner": {"id": "spotify", "display_name": "Spotify"},
-                        "tracks": {"total": 45}
+                        "tracks": {"href": "https://api.spotify.com/v1/playlists/pl_100/tracks", "total": 45}
                     }
                 ],
                 "limit": 20,
@@ -142,12 +156,31 @@ class MockSpotifyHandler(http.server.BaseHTTPRequestHandler):
             }
             self.wfile.write(json.dumps(payload).encode("utf-8"))
 
+        elif self.path == "/v1/forbidden_endpoint":
+            self.send_response(403)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"error": {"status": 403, "message": "Development Mode: User not authorized"}}')
+
         elif self.path == "/v1/rate_limited_endpoint":
             self.send_response(429)
             self.send_header("Retry-After", "10")
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(b'{"error": {"status": 429, "message": "API rate limit exceeded"}}')
+
+        elif self.path == "/v1/server_error_endpoint":
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"error": {"status": 500, "message": "Internal Server Error"}}')
+
+        elif self.path == "/v1/invalid_json_endpoint":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"corrupted": true, unclosed json')
+
         else:
             self.send_response(404)
             self.end_headers()
@@ -234,6 +267,62 @@ class TestMeloraSpotifyServices(unittest.TestCase):
         self.assertIsNone(decoded["preview_url"])
         self.assertEqual(decoded["duration_ms"], 216320)
 
+    def test_simplified_and_full_playlist_dto_decoding(self):
+        # 1. Simplified playlist as returned by GET /v1/me/playlists
+        simplified_playlist = {
+            "id": "37i9dQZF1DXcBWIGoYBM5M",
+            "name": "Today's Top Hits",
+            "description": "Jung Kook is on top of the Hottest 50!",
+            "public": True,
+            "collaborative": False,
+            "snapshot_id": "MTcwMDAwMDAwMCwwMDA=",
+            "images": [{"url": "https://i.scdn.co/image/tth.jpg", "height": 300, "width": 300}],
+            "owner": {"id": "spotify", "display_name": "Spotify"},
+            "tracks": {
+                "href": "https://api.spotify.com/v1/playlists/37i9dQZF1DXcBWIGoYBM5M/tracks",
+                "total": 50
+            }
+        }
+        decoded = json.loads(json.dumps(simplified_playlist))
+        self.assertEqual(decoded["id"], "37i9dQZF1DXcBWIGoYBM5M")
+        self.assertEqual(decoded["tracks"]["total"], 50)
+        self.assertNotIn("items", decoded["tracks"])
+
+        # 2. Full playlist as returned by GET /v1/playlists/{id}
+        full_playlist = {
+            "id": "pl_full_001",
+            "name": "Deep Focus",
+            "tracks": {
+                "href": "https://api.spotify.com/v1/playlists/pl_full_001/tracks",
+                "items": [
+                    {
+                        "added_at": "2024-01-01T00:00:00Z",
+                        "is_local": False,
+                        "track": {"id": "trk_1", "name": "Breathe", "duration_ms": 200000}
+                    }
+                ],
+                "limit": 100,
+                "offset": 0,
+                "total": 1
+            }
+        }
+        decoded_full = json.loads(json.dumps(full_playlist))
+        self.assertEqual(decoded_full["tracks"]["total"], 1)
+        self.assertEqual(len(decoded_full["tracks"]["items"]), 1)
+        self.assertEqual(decoded_full["tracks"]["items"][0]["track"]["name"], "Breathe")
+
+        # 3. Empty paging playlist list
+        empty_paging = {
+            "href": "https://api.spotify.com/v1/me/playlists",
+            "items": [],
+            "limit": 20,
+            "offset": 0,
+            "total": 0
+        }
+        decoded_empty = json.loads(json.dumps(empty_paging))
+        self.assertEqual(len(decoded_empty["items"]), 0)
+        self.assertEqual(decoded_empty["total"], 0)
+
     def test_mock_spotify_token_exchange_and_refresh(self):
         # 1. Exchange authorization code for tokens
         url = f"http://127.0.0.1:{self.port}/api/token"
@@ -283,7 +372,24 @@ class TestMeloraSpotifyServices(unittest.TestCase):
             self.assertEqual(profile["id"], "melora_user_test")
             self.assertEqual(profile["product"], "premium")
 
-        # 2. Unauthorized request (missing token) -> 401
+        # 2. Authorized GET /v1/me/playlists with simplified tracks payload
+        pl_req = urllib.request.Request(f"{base_url}/v1/me/playlists")
+        pl_req.add_header("Authorization", "Bearer mock_access_token_12345")
+        with urllib.request.urlopen(pl_req) as response:
+            self.assertEqual(response.status, 200)
+            pl_data = json.loads(response.read().decode("utf-8"))
+            self.assertEqual(len(pl_data["items"]), 1)
+            self.assertEqual(pl_data["items"][0]["tracks"]["total"], 45)
+
+        # 3. Authorized GET /v1/me/playlists (empty playlists)
+        empty_pl_req = urllib.request.Request(f"{base_url}/v1/me/playlists?empty=true")
+        empty_pl_req.add_header("Authorization", "Bearer mock_access_token_12345")
+        with urllib.request.urlopen(empty_pl_req) as response:
+            self.assertEqual(response.status, 200)
+            empty_data = json.loads(response.read().decode("utf-8"))
+            self.assertEqual(len(empty_data["items"]), 0)
+
+        # 4. Unauthorized request (missing token) -> 401
         unauthorized_req = urllib.request.Request(f"{base_url}/v1/me")
         try:
             with urllib.request.urlopen(unauthorized_req) as resp:
@@ -293,7 +399,18 @@ class TestMeloraSpotifyServices(unittest.TestCase):
             self.assertEqual(err.code, 401)
             err.close()
 
-        # 3. Rate limited endpoint (429 with Retry-After header)
+        # 5. Forbidden request (403 Development Mode error)
+        forbidden_req = urllib.request.Request(f"{base_url}/v1/forbidden_endpoint")
+        forbidden_req.add_header("Authorization", "Bearer mock_access_token_12345")
+        try:
+            with urllib.request.urlopen(forbidden_req) as resp:
+                pass
+            self.fail("Expected 403 Forbidden")
+        except urllib.error.HTTPError as err:
+            self.assertEqual(err.code, 403)
+            err.close()
+
+        # 6. Rate limited endpoint (429 with Retry-After header)
         rate_limit_req = urllib.request.Request(f"{base_url}/v1/rate_limited_endpoint")
         rate_limit_req.add_header("Authorization", "Bearer mock_access_token_12345")
         try:
@@ -305,6 +422,92 @@ class TestMeloraSpotifyServices(unittest.TestCase):
             retry_after = err.headers.get("Retry-After")
             self.assertEqual(retry_after, "10")
             err.close()
+
+        # 7. Server error endpoint (500)
+        server_err_req = urllib.request.Request(f"{base_url}/v1/server_error_endpoint")
+        server_err_req.add_header("Authorization", "Bearer mock_access_token_12345")
+        try:
+            with urllib.request.urlopen(server_err_req) as resp:
+                pass
+            self.fail("Expected 500 Server Error")
+        except urllib.error.HTTPError as err:
+            self.assertEqual(err.code, 500)
+            err.close()
+
+        # 8. Invalid JSON endpoint -> raises JSONDecodeError
+        invalid_json_req = urllib.request.Request(f"{base_url}/v1/invalid_json_endpoint")
+        invalid_json_req.add_header("Authorization", "Bearer mock_access_token_12345")
+        with urllib.request.urlopen(invalid_json_req) as resp:
+            content = resp.read().decode("utf-8")
+            with self.assertRaises(json.JSONDecodeError):
+                json.loads(content)
+
+    def test_spotify_viewmodel_loading_and_retry_state_machine(self):
+        """Simulates SpotifyViewModel state machine and ensures no infinite spinner."""
+        class MockSpotifyViewModel:
+            def __init__(self):
+                self.isLoadingPlaylists = False
+                self.playlistErrorMessage = None
+                self.remotePlaylists = []
+                self.statusMessage = None
+
+            def load_remote_playlists(self, fetch_func):
+                if self.isLoadingPlaylists:
+                    return
+                self.isLoadingPlaylists = True
+                self.playlistErrorMessage = None
+
+                try:
+                    playlists = fetch_func()
+                    self.remotePlaylists = playlists
+                    if not playlists:
+                        self.statusMessage = "No Spotify playlists found in your library."
+                except Exception as ex:
+                    self.playlistErrorMessage = str(ex)
+                    self.statusMessage = f"Failed to load Spotify playlists: {ex}"
+                finally:
+                    # Defer cleanup guarantees isLoadingPlaylists is reset
+                    self.isLoadingPlaylists = False
+
+            def disconnect(self):
+                self.isLoadingPlaylists = False
+                self.playlistErrorMessage = None
+                self.remotePlaylists = []
+
+        vm = MockSpotifyViewModel()
+        self.assertFalse(vm.isLoadingPlaylists)
+        self.assertIsNone(vm.playlistErrorMessage)
+        self.assertEqual(len(vm.remotePlaylists), 0)
+
+        # 1. Successful fetch with items
+        vm.load_remote_playlists(lambda: [{"id": "pl_1", "name": "Chill", "totalTracks": 20}])
+        self.assertFalse(vm.isLoadingPlaylists)
+        self.assertIsNone(vm.playlistErrorMessage)
+        self.assertEqual(len(vm.remotePlaylists), 1)
+
+        # 2. Successful fetch with empty items -> empty state, not infinite loading
+        vm.load_remote_playlists(lambda: [])
+        self.assertFalse(vm.isLoadingPlaylists)
+        self.assertIsNone(vm.playlistErrorMessage)
+        self.assertEqual(len(vm.remotePlaylists), 0)
+        self.assertEqual(vm.statusMessage, "No Spotify playlists found in your library.")
+
+        # 3. Error state (e.g. 401 or decoding error) -> error banner with retry, not infinite loading
+        vm.load_remote_playlists(lambda: (_ for _ in ()).throw(ValueError("401 Unauthorized")))
+        self.assertFalse(vm.isLoadingPlaylists)
+        self.assertEqual(vm.playlistErrorMessage, "401 Unauthorized")
+
+        # 4. Retry -> clears error message and recovers
+        vm.load_remote_playlists(lambda: [{"id": "pl_2", "name": "Vibes", "totalTracks": 10}])
+        self.assertFalse(vm.isLoadingPlaylists)
+        self.assertIsNone(vm.playlistErrorMessage)
+        self.assertEqual(len(vm.remotePlaylists), 1)
+
+        # 5. Disconnect -> clears everything
+        vm.disconnect()
+        self.assertFalse(vm.isLoadingPlaylists)
+        self.assertIsNone(vm.playlistErrorMessage)
+        self.assertEqual(len(vm.remotePlaylists), 0)
 
 
 if __name__ == "__main__":

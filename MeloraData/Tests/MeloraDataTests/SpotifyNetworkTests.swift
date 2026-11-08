@@ -48,6 +48,52 @@ struct SpotifyNetworkTests {
     func testResponseHandlerErrors() {
         let url = URL(string: "https://api.spotify.com/v1/me")!
 
+        // 200 OK with valid simplified playlist payload
+        let validPayload = """
+        {
+            "href": "https://api.spotify.com/v1/me/playlists",
+            "items": [
+                {
+                    "id": "pl_1",
+                    "name": "My Ambient Playlist",
+                    "tracks": {
+                        "href": "https://api.spotify.com/v1/playlists/pl_1/tracks",
+                        "total": 35
+                    }
+                }
+            ],
+            "limit": 20,
+            "next": null,
+            "offset": 0,
+            "previous": null,
+            "total": 1
+        }
+        """.data(using: .utf8)!
+        let resp200 = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
+        do {
+            let result: SpotifyPagingDTO<SpotifyPlaylistDTO> = try SpotifyResponseHandler.handleResponse(data: validPayload, response: resp200)
+            #expect(result.items.count == 1)
+            #expect(result.items[0].name == "My Ambient Playlist")
+            #expect(result.items[0].totalTracks == 35)
+        } catch {
+            Issue.record("Failed to decode 200 response: \(error)")
+        }
+
+        // 200 OK with invalid JSON -> throws decodingError
+        let invalidJson = "{ invalid json payload".data(using: .utf8)!
+        do {
+            let _: SpotifyPagingDTO<SpotifyPlaylistDTO> = try SpotifyResponseHandler.handleResponse(data: invalidJson, response: resp200)
+            Issue.record("Expected decodingError")
+        } catch let error as SpotifyAPIError {
+            if case .decodingError = error {
+                #expect(true)
+            } else {
+                Issue.record("Expected decodingError, got \(error)")
+            }
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
         // 401 Unauthorized
         let resp401 = HTTPURLResponse(url: url, statusCode: 401, httpVersion: nil, headerFields: nil)!
         #expect(throws: SpotifyAPIError.self) {
@@ -70,6 +116,12 @@ struct SpotifyNetworkTests {
             #expect(error.retryAfterSeconds == 8)
         } catch {
             Issue.record("Unexpected error type: \(error)")
+        }
+
+        // 500 Server Error
+        let resp500 = HTTPURLResponse(url: url, statusCode: 500, httpVersion: nil, headerFields: nil)!
+        #expect(throws: SpotifyAPIError.self) {
+            let _: SpotifyUserProfile = try SpotifyResponseHandler.handleResponse(data: Data(), response: resp500)
         }
     }
 }

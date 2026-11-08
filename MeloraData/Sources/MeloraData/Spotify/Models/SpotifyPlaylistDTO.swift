@@ -17,7 +17,7 @@ public struct SpotifyPlaylistOwnerDTO: Codable, Sendable, Equatable, Hashable {
 }
 
 /// Track container item inside a playlist track response.
-public struct SpotifyPlaylistTrackItemDTO: Codable, Sendable, Equatable {
+public struct SpotifyPlaylistTrackItemDTO: Codable, Sendable, Equatable, Hashable {
     public let addedAt: String?
     public let isLocal: Bool?
     public let track: SpotifyTrackDTO?
@@ -35,14 +35,45 @@ public struct SpotifyPlaylistTrackItemDTO: Codable, Sendable, Equatable {
     }
 }
 
+/// Track reference or paging container inside a playlist response.
+/// Compatible with both simplified playlist objects (where tracks only contains href & total)
+/// and full playlist objects (which may contain full paging items).
+public struct SpotifyPlaylistTracksRefDTO: Codable, Sendable, Equatable, Hashable {
+    public let href: String?
+    public let total: Int?
+    public let items: [SpotifyPlaylistTrackItemDTO]?
+    public let limit: Int?
+    public let next: String?
+    public let offset: Int?
+    public let previous: String?
+
+    public init(
+        href: String? = nil,
+        total: Int? = nil,
+        items: [SpotifyPlaylistTrackItemDTO]? = nil,
+        limit: Int? = nil,
+        next: String? = nil,
+        offset: Int? = nil,
+        previous: String? = nil
+    ) {
+        self.href = href
+        self.total = total
+        self.items = items
+        self.limit = limit
+        self.next = next
+        self.offset = offset
+        self.previous = previous
+    }
+}
+
 /// Playlist representation returned by Spotify Web API endpoints.
-public struct SpotifyPlaylistDTO: Codable, Sendable, Equatable {
+public struct SpotifyPlaylistDTO: Codable, Sendable, Equatable, Hashable {
     public let id: String
     public let name: String
     public let description: String?
     public let images: [SpotifyImageDTO]?
     public let owner: SpotifyPlaylistOwnerDTO?
-    public let tracks: SpotifyPagingDTO<SpotifyPlaylistTrackItemDTO>?
+    public let tracks: SpotifyPlaylistTracksRefDTO?
     public let isPublic: Bool?
     public let collaborative: Bool?
     public let snapshotId: String?
@@ -54,7 +85,7 @@ public struct SpotifyPlaylistDTO: Codable, Sendable, Equatable {
         description: String? = nil,
         images: [SpotifyImageDTO]? = nil,
         owner: SpotifyPlaylistOwnerDTO? = nil,
-        tracks: SpotifyPagingDTO<SpotifyPlaylistTrackItemDTO>? = nil,
+        tracks: SpotifyPlaylistTracksRefDTO? = nil,
         isPublic: Bool? = nil,
         collaborative: Bool? = nil,
         snapshotId: String? = nil,

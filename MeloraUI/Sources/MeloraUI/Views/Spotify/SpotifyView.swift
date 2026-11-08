@@ -114,12 +114,101 @@ public struct SpotifyView: View {
 
     private var remotePlaylistsSection: some View {
         VStack(alignment: .leading, spacing: MeloraSpacing.md) {
-            Text("Spotify Playlists")
-                .font(MeloraTypography.sectionHeader)
-                .foregroundColor(MeloraColors.textPrimary)
+            HStack {
+                Text("Spotify Playlists")
+                    .font(MeloraTypography.sectionHeader)
+                    .foregroundColor(MeloraColors.textPrimary)
 
-            if viewModel.remotePlaylists.isEmpty {
-                ProgressView().tint(MeloraColors.spotifyGreen)
+                Spacer()
+
+                if !viewModel.isLoadingPlaylists {
+                    Button(action: {
+                        viewModel.loadRemotePlaylists()
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(MeloraColors.textSecondary)
+                    }
+                    .accessibilityLabel("Refresh playlists")
+                }
+            }
+
+            if viewModel.isLoadingPlaylists {
+                HStack(spacing: MeloraSpacing.md) {
+                    ProgressView()
+                        .tint(MeloraColors.spotifyGreen)
+                    Text("Loading your Spotify playlists...")
+                        .font(MeloraTypography.bodyRegular)
+                        .foregroundColor(MeloraColors.textSecondary)
+                }
+                .padding(.vertical, MeloraSpacing.lg)
+                .frame(maxWidth: .infinity, alignment: .center)
+            } else if let error = viewModel.playlistErrorMessage {
+                VStack(spacing: MeloraSpacing.sm) {
+                    HStack(spacing: MeloraSpacing.sm) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(MeloraColors.warning)
+                        Text("Unable to Load Playlists")
+                            .font(MeloraTypography.bodyBold)
+                            .foregroundColor(MeloraColors.textPrimary)
+                    }
+
+                    Text(error)
+                        .font(MeloraTypography.caption)
+                        .foregroundColor(MeloraColors.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, MeloraSpacing.sm)
+
+                    Button(action: {
+                        viewModel.loadRemotePlaylists()
+                    }) {
+                        HStack(spacing: MeloraSpacing.xs) {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Retry")
+                        }
+                        .font(MeloraTypography.captionMedium)
+                        .foregroundColor(MeloraColors.amoledBlack)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(MeloraColors.spotifyGreen)
+                        .clipShape(Capsule())
+                    }
+                    .padding(.top, MeloraSpacing.xs)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, MeloraSpacing.lg)
+                .meloraCard()
+            } else if viewModel.remotePlaylists.isEmpty {
+                VStack(spacing: MeloraSpacing.sm) {
+                    Image(systemName: "music.note.list")
+                        .font(.system(size: 36))
+                        .foregroundColor(MeloraColors.textTertiary)
+
+                    Text("No Playlists Found")
+                        .font(MeloraTypography.bodyBold)
+                        .foregroundColor(MeloraColors.textPrimary)
+
+                    Text("Your Spotify account does not have any saved playlists yet, or they could not be found.")
+                        .font(MeloraTypography.caption)
+                        .foregroundColor(MeloraColors.textSecondary)
+                        .multilineTextAlignment(.center)
+
+                    Button(action: {
+                        viewModel.loadRemotePlaylists()
+                    }) {
+                        Text("Refresh")
+                            .font(MeloraTypography.captionMedium)
+                            .foregroundColor(MeloraColors.textPrimary)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6)
+                            .background(MeloraColors.cardElevated)
+                            .clipShape(Capsule())
+                    }
+                    .padding(.top, MeloraSpacing.xs)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, MeloraSpacing.xl)
+                .meloraCard()
             } else {
                 VStack(spacing: MeloraSpacing.sm) {
                     ForEach(viewModel.remotePlaylists) { item in
