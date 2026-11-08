@@ -79,8 +79,14 @@ workflows:
           echo "=== Inspecting Xcode Build Output in DerivedData ==="
           ls -la build/DerivedData/Build/Products/Release-iphoneos/ 2>/dev/null || true
 
-          # Dynamically locate the built application bundle
-          APP_PATH=$(find build/DerivedData/Build/Products -name "*.app" -type d | head -n 1)
+          # 1. Dynamically locate the built application bundle, preferring device Release-iphoneos
+          APP_PATH=""
+          if [ -d "build/DerivedData/Build/Products/Release-iphoneos" ]; then
+            APP_PATH=$(find build/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" -type d | head -n 1)
+          fi
+          if [ -z "$APP_PATH" ]; then
+            APP_PATH=$(find build/DerivedData -name "*.app" -type d ! -path "*-iphonesimulator/*" | head -n 1)
+          fi
           if [ -z "$APP_PATH" ]; then
             APP_PATH=$(find build/DerivedData -name "*.app" -type d | head -n 1)
           fi
@@ -93,35 +99,62 @@ workflows:
           fi
 
           echo "Found application bundle at: $APP_PATH"
-          APP_NAME=$(basename "$APP_PATH")
+          INFO_PLIST="$APP_PATH/Info.plist"
 
-          # 1. Verify Info.plist exists
-          if [ ! -f "$APP_PATH/Info.plist" ]; then
+          # 2. Verify Info.plist exists
+          if [ ! -f "$INFO_PLIST" ]; then
             echo "ERROR: Info.plist not found in $APP_PATH"
             exit 1
           fi
-          echo "✓ Verified: Info.plist exists in $APP_PATH"
+          echo "✓ Verified: Info.plist exists at $INFO_PLIST"
 
-          # 2. Verify CFBundleIdentifier
-          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP_PATH/Info.plist" 2>/dev/null || plutil -extract CFBundleIdentifier raw "$APP_PATH/Info.plist" 2>/dev/null || echo "unknown")
-          echo "✓ Verified: CFBundleIdentifier is '$BUNDLE_ID'"
-
-          # 3. Verify App Executable exists
-          EXECUTABLE_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP_PATH/Info.plist" 2>/dev/null || plutil -extract CFBundleExecutable raw "$APP_PATH/Info.plist" 2>/dev/null || echo "${APP_NAME%.app}")
-          if [ ! -f "$APP_PATH/$EXECUTABLE_NAME" ]; then
-            echo "ERROR: Executable '$EXECUTABLE_NAME' not found in $APP_PATH"
+          # 3. Verify CFBundleIdentifier equals com.melora.music
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$INFO_PLIST" 2>/dev/null || true)
+          if [ "$BUNDLE_ID" != "com.melora.music" ]; then
+            echo "ERROR: Expected CFBundleIdentifier 'com.melora.music', but got '$BUNDLE_ID'"
             exit 1
           fi
-          EXEC_SIZE=$(wc -c < "$APP_PATH/$EXECUTABLE_NAME" | tr -d ' ')
-          echo "✓ Verified: Executable '$EXECUTABLE_NAME' exists ($EXEC_SIZE bytes)"
+          echo "✓ Verified: CFBundleIdentifier is '$BUNDLE_ID'"
 
-          # 4. Package verified app into standard iOS Payload structure for unsigned IPA
+          # 4. Read CFBundleExecutable safely via PlistBuddy
+          set +e
+          EXECUTABLE_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$INFO_PLIST" 2>&1)
+          PLIST_STATUS=$?
+          set -e
+
+          if [ $PLIST_STATUS -ne 0 ] || [ -z "$EXECUTABLE_NAME" ]; then
+            echo "ERROR: CFBundleExecutable is missing or invalid in $INFO_PLIST"
+            echo "PlistBuddy status: $PLIST_STATUS, output: $EXECUTABLE_NAME"
+            echo "=== Actual Info.plist Contents ==="
+            /usr/libexec/PlistBuddy -c "Print" "$INFO_PLIST" 2>/dev/null || cat "$INFO_PLIST"
+            exit 1
+          fi
+          echo "✓ Verified: CFBundleExecutable key found: '$EXECUTABLE_NAME'"
+
+          # 5. Verify App Executable file exists and is non-empty
+          EXECUTABLE_PATH="$APP_PATH/$EXECUTABLE_NAME"
+          if [ ! -f "$EXECUTABLE_PATH" ]; then
+            echo "ERROR: Executable binary not found at $EXECUTABLE_PATH"
+            echo "Directory listing of $APP_PATH:"
+            ls -la "$APP_PATH"
+            exit 1
+          fi
+
+          if [ ! -s "$EXECUTABLE_PATH" ]; then
+            echo "ERROR: Executable binary at $EXECUTABLE_PATH is empty (0 bytes)"
+            exit 1
+          fi
+
+          EXEC_SIZE=$(wc -c < "$EXECUTABLE_PATH" | tr -d ' ')
+          echo "✓ Verified: Executable '$EXECUTABLE_NAME' exists and is non-empty ($EXEC_SIZE bytes)"
+
+          # 6. Package verified app into standard iOS Payload structure for unsigned IPA
           echo "=== Packaging Unsigned IPA (Payload/Melora.app) ==="
           rm -rf build/output/Payload
           mkdir -p build/output/Payload
           cp -R "$APP_PATH" build/output/Payload/Melora.app
 
-          # Also create Melora-unsigned.app bundle copy
+          # Also create Melora-unsigned.app bundle copy for direct inspection
           rm -rf build/output/Melora-unsigned.app
           cp -R "$APP_PATH" build/output/Melora-unsigned.app
 
@@ -130,21 +163,19 @@ workflows:
           zip -r -y "Melora-iOS-unsigned.app.zip" "Melora-unsigned.app"
           cd -
 
-          # 5. Validate the generated IPA archive structure
+          # 7. Validate the generated IPA archive structure
           echo "=== Validating Generated IPA Archive ==="
-          if unzip -l build/output/Melora-unsigned.ipa | grep -q "Payload/Melora.app/Info.plist"; then
-            echo "✓ SUCCESS: Melora-unsigned.ipa contains 'Payload/Melora.app/Info.plist'"
-          else
+          if ! unzip -l build/output/Melora-unsigned.ipa | grep -q "Payload/Melora.app/Info.plist"; then
             echo "ERROR: Melora-unsigned.ipa validation failed: Payload/Melora.app/Info.plist is missing"
             exit 1
           fi
+          echo "✓ SUCCESS: IPA archive contains 'Payload/Melora.app/Info.plist'"
 
-          if unzip -l build/output/Melora-unsigned.ipa | grep -q "Payload/Melora.app/"; then
-            echo "✓ SUCCESS: Melora-unsigned.ipa contains Payload directory structure"
-          else
-            echo "ERROR: Missing Payload directory in IPA archive"
+          if ! unzip -l build/output/Melora-unsigned.ipa | grep -q "Payload/Melora.app/$EXECUTABLE_NAME"; then
+            echo "ERROR: Melora-unsigned.ipa validation failed: Payload/Melora.app/$EXECUTABLE_NAME is missing"
             exit 1
           fi
+          echo "✓ SUCCESS: IPA archive contains 'Payload/Melora.app/$EXECUTABLE_NAME'"
 
           echo "=== Package Artifact Summary ==="
           ls -lh build/output/Melora-unsigned.ipa
