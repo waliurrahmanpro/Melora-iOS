@@ -290,12 +290,21 @@ public struct QueueSheetView: View {
                 }
             }
             .navigationTitle("Up Next")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
+                #if os(iOS)
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
                         .foregroundColor(MeloraColors.accent)
                 }
+                #else
+                ToolbarItem(placement: .automatic) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(MeloraColors.accent)
+                }
+                #endif
             }
         }
         .preferredColorScheme(.dark)

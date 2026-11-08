@@ -55,6 +55,7 @@ public struct PlaylistView: View {
             }
             .navigationTitle("Playlists")
             .toolbar {
+                #if os(iOS)
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { viewModel.isCreatePresented = true }) {
                         Image(systemName: "plus")
@@ -62,6 +63,15 @@ public struct PlaylistView: View {
                             .foregroundColor(MeloraColors.accent)
                     }
                 }
+                #else
+                ToolbarItem(placement: .automatic) {
+                    Button(action: { viewModel.isCreatePresented = true }) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(MeloraColors.accent)
+                    }
+                }
+                #endif
             }
             .onAppear {
                 viewModel.loadPlaylists()
@@ -220,7 +230,9 @@ public struct PlaylistDetailView: View {
             .padding(.bottom, 100)
         }
         .meloraBackground()
+        #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        #endif
         .onAppear {
             viewModel.loadTracks(for: playlist)
         }

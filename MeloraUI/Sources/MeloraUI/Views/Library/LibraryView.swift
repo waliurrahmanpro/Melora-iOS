@@ -72,6 +72,7 @@ public struct LibraryView: View {
             .meloraBackground()
             .navigationTitle("Your Library")
             .toolbar {
+                #if os(iOS)
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { viewModel.isFilePickerPresented = true }) {
                         Label("Import", systemImage: "plus")
@@ -79,6 +80,15 @@ public struct LibraryView: View {
                             .foregroundColor(MeloraColors.accent)
                     }
                 }
+                #else
+                ToolbarItem(placement: .automatic) {
+                    Button(action: { viewModel.isFilePickerPresented = true }) {
+                        Label("Import", systemImage: "plus")
+                            .font(MeloraTypography.bodyBold)
+                            .foregroundColor(MeloraColors.accent)
+                    }
+                }
+                #endif
             }
             .onAppear {
                 viewModel.loadLibrary()
