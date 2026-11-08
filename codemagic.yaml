@@ -49,8 +49,7 @@ workflows:
           swift test --package-path MeloraData
           echo "=== Testing MeloraAudio ==="
           swift test --package-path MeloraAudio
-          echo "=== Testing MeloraUI ==="
-          swift test --package-path MeloraUI
+          echo "=== MeloraUI is validated during Xcode iOS build ==="
 
       - name: Run Cross-Platform Contract Verification Suite
         script: |

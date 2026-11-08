@@ -1,5 +1,6 @@
 import Foundation
 import MeloraCore
+import MeloraData
 
 #if canImport(SwiftUI)
 import SwiftUI

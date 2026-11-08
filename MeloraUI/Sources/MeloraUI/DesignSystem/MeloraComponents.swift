@@ -4,6 +4,12 @@ import MeloraCore
 #if canImport(SwiftUI)
 import SwiftUI
 
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
+
 // MARK: - Artwork Image Loader
 
 public struct MeloraArtworkImage: View {
@@ -29,10 +35,17 @@ public struct MeloraArtworkImage: View {
                             placeholderView
                         }
                     }
+                #if canImport(UIKit)
                 } else if let uiImage = UIImage(contentsOfFile: path) {
                     Image(uiImage: uiImage)
                         .resizable()
                         .scaledToFill()
+                #elseif canImport(AppKit)
+                } else if let nsImage = NSImage(contentsOfFile: path) {
+                    Image(nsImage: nsImage)
+                        .resizable()
+                        .scaledToFill()
+                #endif
                 } else {
                     placeholderView
                 }

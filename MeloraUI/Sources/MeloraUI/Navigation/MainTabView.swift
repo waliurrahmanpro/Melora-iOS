@@ -89,9 +89,15 @@ public struct MainTabView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        #if os(iOS)
         .fullScreenCover(isPresented: $playerViewModel.isNowPlayingPresented) {
             NowPlayingView(viewModel: playerViewModel)
         }
+        #else
+        .sheet(isPresented: $playerViewModel.isNowPlayingPresented) {
+            NowPlayingView(viewModel: playerViewModel)
+        }
+        #endif
         .preferredColorScheme(.dark)
     }
 }
