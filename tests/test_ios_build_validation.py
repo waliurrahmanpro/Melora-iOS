@@ -54,6 +54,7 @@ class TestIOSBuildValidation(unittest.TestCase):
 
             self.assertIn("swift-tools-version: 6.0", content, f"{pkg} must specify swift-tools-version: 6.0")
             self.assertIn(".iOS(.v18)", content, f"{pkg} must specify .iOS(.v18)")
+            self.assertNotIn("StrictConcurrency", content, f"{pkg} must not redundantly enable StrictConcurrency in Swift 6")
 
     def test_melora_app_entry_point(self):
         """Verify MeloraApp.swift provides @main entry point with full coordinator wiring."""

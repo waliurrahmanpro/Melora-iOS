@@ -20,10 +20,7 @@ let package = Package(
         .target(
             name: "MeloraCore",
             dependencies: [],
-            path: "Sources/MeloraCore",
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
-            ]
+            path: "Sources/MeloraCore"
         ),
         .testTarget(
             name: "MeloraCoreTests",

@@ -24,10 +24,7 @@ let package = Package(
             dependencies: [
                 "MeloraCore"
             ],
-            path: "Sources/MeloraData",
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
-            ]
+            path: "Sources/MeloraData"
         ),
         .testTarget(
             name: "MeloraDataTests",

@@ -24,10 +24,7 @@ let package = Package(
                 "MeloraCore",
                 "MeloraData"
             ],
-            path: "Sources/MeloraAudio",
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
-            ]
+            path: "Sources/MeloraAudio"
         ),
         .testTarget(
             name: "MeloraAudioTests",
