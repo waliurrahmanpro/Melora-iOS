@@ -1,6 +1,6 @@
 import Foundation
 
-#if canImport(AVFoundation)
+#if os(iOS)
 import AVFoundation
 #endif
 
@@ -19,11 +19,15 @@ public final class AudioSessionManager: @unchecked Sendable {
     private let lock = NSLock()
 
     public init() {
+        #if os(iOS)
         setupObservers()
+        #endif
     }
 
     deinit {
+        #if os(iOS)
         removeObservers()
+        #endif
         deactivateSession()
     }
 
@@ -32,7 +36,7 @@ public final class AudioSessionManager: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
 
-        #if canImport(AVFoundation)
+        #if os(iOS)
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.playback, mode: .default, policy: .longFormAudio)
@@ -51,7 +55,7 @@ public final class AudioSessionManager: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
 
-        #if canImport(AVFoundation)
+        #if os(iOS)
         guard isSessionActive else { return }
         do {
             try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
@@ -64,8 +68,8 @@ public final class AudioSessionManager: @unchecked Sendable {
         #endif
     }
 
+    #if os(iOS)
     private func setupObservers() {
-        #if canImport(AVFoundation)
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleInterruption(notification:)),
@@ -79,16 +83,12 @@ public final class AudioSessionManager: @unchecked Sendable {
             name: AVAudioSession.routeChangeNotification,
             object: AVAudioSession.sharedInstance()
         )
-        #endif
     }
 
     private func removeObservers() {
-        #if canImport(AVFoundation)
         NotificationCenter.default.removeObserver(self)
-        #endif
     }
 
-    #if canImport(AVFoundation)
     @objc private func handleInterruption(notification: Notification) {
         guard let userInfo = notification.userInfo,
               let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
