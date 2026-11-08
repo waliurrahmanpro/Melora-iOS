@@ -100,5 +100,26 @@ class TestIOSBuildValidation(unittest.TestCase):
         self.assertIn("xcodebuild", ci, "Workflow must run xcodebuild for simulator")
         self.assertIn("actions/upload-artifact@v4", ci, "Workflow must upload build logs and artifacts")
 
+    def test_codemagic_configuration(self):
+        """Verify codemagic.yaml exists, specifies M2 runner, Xcode 16, and unsigned release build."""
+        codemagic_path = os.path.join(self.root_dir, "codemagic.yaml")
+        self.assertTrue(os.path.exists(codemagic_path), "codemagic.yaml must exist in repository root")
+
+        with open(codemagic_path, "r", encoding="utf-8") as f:
+            cm = f.read()
+
+        self.assertIn("workflows:", cm)
+        self.assertIn("mac_mini_m2", cm, "Codemagic must use supported M2 runner")
+        self.assertIn("xcode: 16.0", cm, "Must specify Xcode 16.0")
+        self.assertIn("Melora.xcodeproj", cm, "Must target Melora.xcodeproj")
+        self.assertIn("MeloraApp", cm, "Must target MeloraApp scheme")
+        self.assertIn("CODE_SIGNING_ALLOWED=NO", cm, "Code signing must be disabled for initial test")
+        self.assertIn("MeloraCore", cm)
+        self.assertIn("MeloraData", cm)
+        self.assertIn("MeloraAudio", cm)
+        self.assertIn("MeloraUI", cm)
+        self.assertIn("artifacts:", cm)
+        self.assertIn("Melora-iOS-unsigned.app.zip", cm, "Artifact must be clearly designated as unsigned app")
+
 if __name__ == "__main__":
     unittest.main()

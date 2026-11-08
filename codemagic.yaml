@@ -1,0 +1,99 @@
+# ==============================================================================
+# Melora — Codemagic CI/CD Pipeline Configuration
+# Native iOS 18+ / Swift 6 / SwiftUI Music Player
+# ==============================================================================
+
+workflows:
+  melora-ios-release-build:
+    name: Melora iOS Release Build (Unsigned Verification)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    environment:
+      xcode: 16.0
+      vars:
+        XCODE_PROJECT: "Melora.xcodeproj"
+        XCODE_SCHEME: "MeloraApp"
+        BUNDLE_ID: "com.melora.music"
+
+    triggering:
+      events:
+        - push
+        - pull_request
+        - tag
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+        - pattern: develop
+          include: true
+          source: true
+
+    scripts:
+      - name: Environment Diagnostics & Tool Versions
+        script: |
+          echo "=== System Information ==="
+          sw_vers
+          uname -m
+          echo "=== Developer Tools ==="
+          xcodebuild -version
+          swift --version
+          echo "=== Xcode Projects and Schemes ==="
+          xcodebuild -list -project "$XCODE_PROJECT"
+
+      - name: Run Swift 6 Package Tests
+        script: |
+          echo "=== Testing MeloraCore ==="
+          swift test --package-path MeloraCore
+          echo "=== Testing MeloraData ==="
+          swift test --package-path MeloraData
+          echo "=== Testing MeloraAudio ==="
+          swift test --package-path MeloraAudio
+          echo "=== Testing MeloraUI ==="
+          swift test --package-path MeloraUI
+
+      - name: Run Cross-Platform Contract Verification Suite
+        script: |
+          echo "=== Running 44 Unit Tests (SQLite, Models, Spotify PKCE, Storage, ViewModels) ==="
+          python3 -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Build Melora App (Release Configuration - Unsigned)
+        script: |
+          mkdir -p build/DerivedData build/output
+          set -o pipefail
+
+          # Build for generic iOS device with code signing temporarily disabled
+          xcodebuild \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build | tee build/output/xcodebuild.log
+
+      - name: Package Unsigned Application Artifact
+        script: |
+          APP_PATH=$(find build/DerivedData -name "Melora.app" -type d | head -n 1)
+          if [ -n "$APP_PATH" ] && [ -d "$APP_PATH" ]; then
+            echo "Successfully built application bundle at: $APP_PATH"
+            cp -R "$APP_PATH" build/output/Melora-unsigned.app
+            
+            # Create a compressed zip archive of the unsigned .app bundle
+            cd build/output
+            zip -r -y "Melora-iOS-unsigned.app.zip" "Melora-unsigned.app"
+            cd -
+            
+            echo "Unsigned app archive created: build/output/Melora-iOS-unsigned.app.zip"
+            echo "Note: This is an unsigned .app bundle verifying compilation and suitable for sideloading/inspection."
+            echo "A signed installable .ipa requires Apple distribution certificates and provisioning profiles."
+          else
+            echo "ERROR: Melora.app was not found in build/DerivedData"
+            exit 1
+          fi
+
+    artifacts:
+      - build/output/Melora-iOS-unsigned.app.zip
+      - build/output/xcodebuild.log
