@@ -35,19 +35,8 @@ public struct MeloraArtworkImage: View {
                             placeholderView
                         }
                     }
-                #if canImport(UIKit)
-                } else if let uiImage = UIImage(contentsOfFile: path) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFill()
-                #elseif canImport(AppKit)
-                } else if let nsImage = NSImage(contentsOfFile: path) {
-                    Image(nsImage: nsImage)
-                        .resizable()
-                        .scaledToFill()
-                #endif
                 } else {
-                    placeholderView
+                    localImageView(path: path)
                 }
             } else {
                 placeholderView
@@ -59,6 +48,29 @@ public struct MeloraArtworkImage: View {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .stroke(MeloraColors.cardBorder.opacity(0.6), lineWidth: 1)
         )
+    }
+
+    @ViewBuilder
+    private func localImageView(path: String) -> some View {
+        #if canImport(UIKit)
+        if let uiImage = UIImage(contentsOfFile: path) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+        } else {
+            placeholderView
+        }
+        #elseif canImport(AppKit)
+        if let nsImage = NSImage(contentsOfFile: path) {
+            Image(nsImage: nsImage)
+                .resizable()
+                .scaledToFill()
+        } else {
+            placeholderView
+        }
+        #else
+        placeholderView
+        #endif
     }
 
     private var placeholderView: some View {
